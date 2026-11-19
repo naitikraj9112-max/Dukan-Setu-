@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createHttpAdapter } from './api.js'
+import { createShopApi } from './shopApi.js'
 import { normalizeNotifications, normalizeOrder, normalizeOrders } from './records.js'
 import { createSeed } from '../mock/seed.js'
 import { forecast, summarize } from '../utils/analytics.js'
@@ -92,24 +92,70 @@ test('analytics reconcile across daily, weekly, and status totals and forecast s
   assert(forecast(orders, inventory, now).some(row => row.historicalQuantity > 0 && row.restock > 0 && row.average === row.expected))
 })
 
-test('HTTP adapter uses the status and mark-read contracts and rejects invalid server responses', async context => {
+const shopId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+const orderId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+const shopOrder = { ...rawOrder, id: orderId, confirmation_status: undefined }
+const dataResponse = data => Response.json({ data })
+
+test('shop API joins paginated orders, products, and customers without inventing voice confirmation', async context => {
+  const requests = []
+  context.mock.method(globalThis, 'fetch', async (url, options) => {
+    requests.push({ url, options })
+    const parsed = new URL(url)
+    const path = parsed.pathname.replace('/v1/shops/' + shopId, '')
+    if (path === '/orders') {
+      const rows = parsed.searchParams.get('offset') === '0' ? Array(500).fill(shopOrder) : [{ ...shopOrder, id: 'walk-in', customer_id: null }]
+      return dataResponse(rows)
+    }
+    if (path === '/customers') return dataResponse([{ id: rawOrder.customer_id, name: 'Stored customer', phone_number: '1234567890' }])
+    if (path === '/products') return dataResponse([{ id: 'rice', name: 'Catalog Rice', unit: 'kg', stock_quantity: '20.000', low_stock_threshold: 2, price: '100' }])
+    if (path.endsWith('/history')) return dataResponse([{ status: 'preparing', changed_at: rawOrder.created_at }])
+    return dataResponse({
+      order: { ...shopOrder, id: path.split('/').at(-1), status: 'preparing' },
+      items: [{ product_id: 'rice', quantity: '2.000', unit_price: '60.00' }],
+    })
+  })
+  const api = createShopApi({ baseUrl: 'https://example.invalid/', shopId, getAccessToken: () => 'session-token' })
+  const [orders, sameRead] = await Promise.all([api.getOrders(), api.getOrders()])
+  const order = orders.find(row => row.id === orderId)
+  assert.equal(orders, sameRead)
+  assert.equal(orders.length, 2)
+  assert.equal(order.customer.name, 'Stored customer')
+  assert.equal(order.customer.phone, '1234567890')
+  assert.deepEqual(order.items[0], { productId: 'rice', name: 'Catalog Rice', unit: 'kg', quantity: 2, unitPrice: 60 })
+  assert.equal(order.confirmation.status, 'unavailable')
+  assert.deepEqual(statusOptions(order), ['cancelled'])
+  assert.equal(orders.find(row => row.id === 'walk-in').customer.id, null)
+  assert(requests.some(({ url }) => url.endsWith('/orders?limit=500&offset=500')))
+  assert(requests.every(({ options }) => options.headers.Authorization === 'Bearer session-token'))
+  assert.equal((await api.getOrder(orderId)).statusHistory[0].status, 'packing')
+  assert.equal((await api.getInventory())[0].stock, 20)
+  assert.deepEqual(await api.getNotifications(), [])
+  await api.getOrders()
+  assert.equal(requests.filter(({ url }) => url.includes('/products?')).length, 1)
+})
+
+test('shop status updates translate Packing to preparing and surface backend errors', async context => {
   const calls = []
   context.mock.method(globalThis, 'fetch', async (url, options) => {
     calls.push({ url, options })
-    if (url.endsWith('/read')) return new Response(null, { status: 204 })
-    if (url.endsWith('/missing')) return Response.json({ detail: 'Order not found' }, { status: 404 })
-    if (url.endsWith('/orders')) return new Response('<html></html>')
-    return Response.json({ ...rawOrder, id: 'order/1001', status: 'confirmed' })
+    if (JSON.parse(options.body).status === 'preparing') return dataResponse({ id: orderId, status: 'preparing' })
+    return Response.json({ error: { code: 'conflict', message: 'Order status transition is not allowed' } }, { status: 409 })
   })
-  const api = createHttpAdapter('https://example.invalid/')
-  const updated = await api.updateStatus('order/1001', 'confirmed')
-  assert.equal(updated.status, 'confirmed')
-  assert.equal(calls[0].url, 'https://example.invalid/api/orders/order%2F1001/status')
-  assert.deepEqual(JSON.parse(calls[0].options.body), { status: 'confirmed' })
-  await api.markRead('event/1')
-  assert.equal(calls[1].url, 'https://example.invalid/api/notifications/event%2F1/read')
-  assert.equal(calls[1].options.method, 'PATCH')
-  await assert.rejects(api.getOrder('missing'), /Order not found/)
-  await assert.rejects(api.getOrders(), /invalid JSON/)
-  await assert.rejects(api.updateStatus('order/1001', 'ready'), /did not confirm/)
+  const api = createShopApi({ baseUrl: 'https://example.invalid', shopId, getAccessToken: () => 'session-token' })
+  await api.updateStatus(orderId, 'packing')
+  assert.equal(calls[0].url, 'https://example.invalid/v1/shops/' + shopId + '/orders/' + orderId + '/status')
+  assert.equal(calls[0].options.method, 'PATCH')
+  assert.deepEqual(JSON.parse(calls[0].options.body), { status: 'preparing' })
+  await assert.rejects(api.updateStatus(orderId, 'ready'), /Order status transition is not allowed/)
+  await assert.rejects(createShopApi({ shopId }).getOrders(), /shop-member session is required/)
+})
+
+test('a stored order with unavailable voice confirmation is announced without calling it confirmed', () => {
+  const order = normalizeOrder({ ...rawOrder, confirmation_status: 'unavailable' })
+  const { additions } = incomingOrders([order], new Set(), true)
+  assert.equal(additions.length, 1)
+  assert.match(additions[0].message, /Voice confirmation is unavailable/)
+  assert.deepEqual(orderNotifications([], additions, [order], new Set()), additions)
+  assert.deepEqual(incomingOrders([order], new Set()).additions, [])
 })

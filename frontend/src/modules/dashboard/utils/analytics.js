@@ -30,8 +30,10 @@ export function summarize(orders, days, now = new Date()) {
     statusCounts[order.status] += 1
     hours[new Date(order.createdAt).getHours()].orders += 1
     if (order.status === 'cancelled') continue
-    customers.add(order.customer.id)
-    customerDays.get(bucket.date).add(order.customer.id)
+    if (order.customer.id) {
+      customers.add(order.customer.id)
+      customerDays.get(bucket.date).add(order.customer.id)
+    }
     if (order.status === 'completed' && Number.isFinite(order.total)) {
       bucket.sales += order.total
       bucket.pricedOrders += 1

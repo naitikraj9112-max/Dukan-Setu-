@@ -38,11 +38,13 @@ export function OrderDetail({ api, id, onClose, onUpdated, onCustomer }) {
     <ResourceState resource={resource} />
     {order && <div className="detail-content">
       <div className="detail-top"><time dateTime={order.createdAt}>{dateTime(order.createdAt)}</time><Badge status={order.status} /></div>
-      <section className="detail-section"><h3>Customer</h3><div className="person"><Avatar name={order.customer.name} /><div><button className="order-link" onClick={() => onCustomer(order.customer.id)}>{order.customer.name ?? 'View customer history'}</button><p className="muted small">Customer ID {order.customer.id}</p>{(order.customer.phone || order.customer.language) && <p className="muted small">{[order.customer.phone, order.customer.language].filter(Boolean).join(' · ')}</p>}</div></div></section>
+      <section className="detail-section"><h3>Customer</h3><div className="person"><Avatar name={order.customer.name} /><div>{order.customer.id ? <><button className="order-link" onClick={() => onCustomer(order.customer.id)}>{order.customer.name ?? 'View customer history'}</button><p className="muted small">Customer ID {order.customer.id}</p></> : <p>No customer linked to this order</p>}{(order.customer.phone || order.customer.language) && <p className="muted small">{[order.customer.phone, order.customer.language].filter(Boolean).join(' · ')}</p>}</div></div></section>
       <section className="detail-section"><h3><Mic size={17} /> Voice confirmation</h3>
         <Badge status={order.confirmation?.status ?? 'awaiting_confirmation'}>{VOICE_LABELS[order.confirmation?.status] ?? 'Awaiting confirmation'}</Badge>
         {order.confirmation?.updatedAt && <p className="muted small confirmation-time">Updated {dateTime(order.confirmation.updatedAt)}</p>}
-        {order.confirmation?.status !== 'confirmed' && <p className="muted small confirmation-time">Customer confirmation is required before this order can advance.</p>}
+        {order.confirmation?.status === 'unavailable'
+          ? <p className="muted small confirmation-time">The store API does not report voice confirmation. Fulfillment cannot advance from this dashboard.</p>
+          : order.confirmation?.status !== 'confirmed' && <p className="muted small confirmation-time">Customer confirmation is required before this order can advance.</p>}
       </section>
       {!!order.issues?.length && <section className="detail-section"><h3><CircleAlert size={17} /> Extraction warnings</h3>
         <ul className="issue-list">{order.issues.map((issue, index) => <li key={index}><strong>{ISSUE_LABELS[issue.code] ?? issue.code}{issue.blocking ? ' · Blocks progress' : ''}</strong><p>{issue.message}</p></li>)}</ul>

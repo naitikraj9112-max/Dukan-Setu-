@@ -69,6 +69,12 @@
 .dukansetu-dashboard .arrival-banner p { flex: 1 1 190px; min-width: 0; overflow-wrap: anywhere; }
 .dukansetu-dashboard .arrival-banner p span { display: block; color: var(--sub); font-size: .875rem; }
 .dukansetu-dashboard .customer-instructions p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.dukansetu-dashboard .connection-panel { width: min(92%, 460px); margin: 0 auto; padding: 24px; position: relative; top: clamp(24px, 8vh, 80px); }
+.dukansetu-dashboard .connection-panel h1 { font-size: 1.4rem; }
+.dukansetu-dashboard .connection-panel p { color: var(--sub); margin-top: 8px; }
+.dukansetu-dashboard .connection-panel form, .dukansetu-dashboard .connection-panel label { display: grid; gap: 8px; }
+.dukansetu-dashboard .connection-panel form { gap: 14px; margin-top: 16px; }
+.dukansetu-dashboard .connection-panel input { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px; }
 .dukansetu-dashboard .page-heading { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin: 0 0 21px; }
 .dukansetu-dashboard .page-heading h1 { font-size: clamp(1.85rem, 3vw, 2.42rem); font-weight: 790; letter-spacing: -.045em; line-height: 1.18; }
 .dukansetu-dashboard .page-heading p { margin-top: 4px; color: var(--sub); }

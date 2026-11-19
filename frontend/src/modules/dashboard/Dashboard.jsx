@@ -36,7 +36,7 @@ function Navigation({ basePath, onClick }) {
   </nav>
 }
 
-export function Dashboard({ api = dashboardApi, demo = api === dashboardApi && isDemo, storeName = 'Kirana Store', basePath = '/dashboard' }) {
+export function Dashboard({ api = dashboardApi, demo = api === dashboardApi && isDemo, storeName = 'Kirana Store', basePath = '/dashboard', onDisconnect }) {
   const [panel, setPanel] = useState(null)
   const [days, setDays] = useState(7)
   const [localReads, setLocalReads] = useState(() => new Set())
@@ -51,7 +51,7 @@ export function Dashboard({ api = dashboardApi, demo = api === dashboardApi && i
   const analytics = { data: summary, error: orders.error, refresh: orders.refresh }
   const inventory = useResource(getInventory, { interval: 30000, enabled: ['Overview', 'Inventory', 'Demand forecast'].includes(section) })
   const notifications = useResource(getNotifications, { interval: ORDER_POLL_INTERVAL })
-  const { arrivals, latest, dismiss } = useOrderArrivals(orders.data)
+  const { arrivals, latest, dismiss } = useOrderArrivals(orders.data, api.reportsStoredArrivals)
   const events = useMemo(() => notifications.data || arrivals.length
     ? orderNotifications(notifications.data, arrivals, orders.data, localReads)
     : undefined, [notifications.data, arrivals, orders.data, localReads])
@@ -93,12 +93,13 @@ export function Dashboard({ api = dashboardApi, demo = api === dashboardApi && i
         </div>
         <div className="top-actions">
           {demo && <span className="demo-label"><span />Demo mode</span>}
+          {onDisconnect && <button className="button compact" onClick={onDisconnect}>Disconnect</button>}
           <button className="icon-button notification-trigger" aria-label={unread ? 'Notifications, ' + unread + ' unread' : 'Notifications'} onClick={() => setPanel({ kind: 'notifications' })}><Bell size={21} strokeWidth={1.8} />{unread > 0 && <span className="notification-count">{unread > 99 ? '99+' : unread}</span>}</button>
         </div>
       </header>
       <main id="dashboard-main" className={`content ${section === 'WhatsApp chat' ? 'content-chat' : ''}`} tabIndex={-1}>
         {latest && <div className="arrival-banner">
-          <p role="status"><strong>New Order Received</strong><span>{latest.count === 1 ? 'Order #' + latest.orderId + ' is ready to review.' : latest.count + ' orders are ready to review.'}</span></p>
+          <p role="status"><strong>New Order Received</strong><span>{latest.unverified ? 'The store saved a new order. Voice confirmation is unavailable.' : latest.count === 1 ? 'Order #' + latest.orderId + ' is ready to review.' : latest.count + ' orders are ready to review.'}</span></p>
           <button className="button compact" onClick={() => latest.count === 1 ? openOrder(latest.orderId) : setPanel({ kind: 'notifications' })}>{latest.count === 1 ? 'View order' : 'View notifications'}</button>
           <button className="icon-button compact" onClick={dismiss} aria-label="Dismiss new order alert"><X size={18} /></button>
         </div>}
