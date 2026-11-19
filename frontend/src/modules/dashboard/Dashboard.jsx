@@ -93,7 +93,7 @@ export function Dashboard({ api = dashboardApi, demo = api === dashboardApi && i
         </div>
         <div className="top-actions">
           {demo && <span className="demo-label"><span />Demo mode</span>}
-          {onDisconnect && <button className="button compact" onClick={onDisconnect}>Disconnect</button>}
+          {onDisconnect && <button className="button compact" onClick={onDisconnect}>Sign out</button>}
           <button className="icon-button notification-trigger" aria-label={unread ? 'Notifications, ' + unread + ' unread' : 'Notifications'} onClick={() => setPanel({ kind: 'notifications' })}><Bell size={21} strokeWidth={1.8} />{unread > 0 && <span className="notification-count">{unread > 99 ? '99+' : unread}</span>}</button>
         </div>
       </header>

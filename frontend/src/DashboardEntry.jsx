@@ -1,35 +1,59 @@
 import { useMemo, useState } from 'react'
 import { Dashboard } from './modules/dashboard'
-import { isDemo, shopApiConfig } from './modules/dashboard/services/api'
+import { mockApi } from './modules/dashboard/mock/api.js'
+import { shopApiConfig } from './modules/dashboard/services/api'
 import { createShopApi } from './modules/dashboard/services/shopApi'
 
-export function DashboardEntry() {
-  const [session, setSession] = useState(null)
-  const api = useMemo(() => session ? createShopApi({
-    ...shopApiConfig, shopId: session.shopId, getAccessToken: () => session.accessToken,
-  }) : null, [session])
+export function DashboardEntry({ session, onSignOut }) {
+  const [fallback, setFallback] = useState(false)
+  const hasLiveSession = !fallback && session?.mode === 'live' && Boolean(session?.shopId) && Boolean(session?.accessToken)
 
-  if (isDemo) return <Dashboard />
-  if (api) return <Dashboard api={api} onDisconnect={() => setSession(null)} />
+  const api = useMemo(() => {
+    if (!hasLiveSession) return undefined
+    const liveApi = createShopApi({
+      ...shopApiConfig,
+      shopId: session.shopId,
+      getAccessToken: () => session.accessToken,
+    })
+    // Wrap to catch auth errors and fall back to demo mode smoothly
+    const wrapped = {}
+    for (const [key, fn] of Object.entries(liveApi)) {
+      wrapped[key] = typeof fn === 'function'
+        ? async (...args) => {
+            try {
+              return await fn(...args)
+            } catch (err) {
+              const isAuthError =
+                err?.status === 401 ||
+                err?.status === 403 ||
+                err?.message?.includes('session is required') ||
+                err?.message?.includes('shop ID is required') ||
+                err?.message?.includes('401') ||
+                err?.message?.includes('403') ||
+                err?.message?.includes('token')
+              if (isAuthError) {
+                setFallback(true)
+                // Fall back directly to mockApi for this call
+                if (typeof mockApi[key] === 'function') {
+                  return await mockApi[key](...args)
+                }
+              }
+              throw err
+            }
+          }
+        : fn
+    }
+    return wrapped
+  }, [hasLiveSession, session?.shopId, session?.accessToken])
 
-  function connect(event) {
-    event.preventDefault()
-    const data = new FormData(event.currentTarget)
-    const shopId = data.get('shopId').trim()
-    const accessToken = data.get('accessToken').trim()
-    if (shopId && accessToken) setSession({ shopId, accessToken })
-  }
+  const demo = !hasLiveSession
 
-  return <main className="dukansetu-dashboard">
-    <section className="panel connection-panel">
-      <h1>Connect to your store</h1>
-      <p>Use the shop ID and access token from your authorized shop-member session. The dashboard keeps the token in memory until you disconnect or reload.</p>
-      <form onSubmit={connect}>
-        <label>Shop ID<input name="shopId" type="text" required defaultValue={shopApiConfig.shopId}
-          pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}" /></label>
-        <label>Access token<input name="accessToken" type="password" required autoComplete="off" spellCheck={false} /></label>
-        <button className="button primary" type="submit">Connect</button>
-      </form>
-    </section>
-  </main>
+  return (
+    <Dashboard
+      api={api || mockApi}
+      demo={demo}
+      storeName={session?.storeName || (demo ? 'Kirana Store (Demo)' : 'Kirana Store')}
+      onDisconnect={onSignOut}
+    />
+  )
 }

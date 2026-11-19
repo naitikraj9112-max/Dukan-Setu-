@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from copy import deepcopy
 from pathlib import Path
+from unittest.mock import patch
 
 import httpx
 import pytest
@@ -87,6 +89,49 @@ def request(client, method, path, **kwargs):
 
 def auth():
     return {"Authorization": "Bearer valid-user-token"}
+
+
+def test_buyer_voice_endpoint_returns_structured_sarvam_result(setup_api):
+    client, _ = setup_api
+    existing_order = {"action": "new_order", "items": [{"product": "rice", "quantity": 2, "unit": "kg"}]}
+    result = {
+        "transcript": "ಎರಡು ಕೆ.ಜಿ ಅಕ್ಕಿ",
+        "language_code": "kn-IN",
+        "language_probability": 0.96,
+        "confidence_status": "acceptable",
+        "action": "new_order",
+        "items": [{"product": "ಅಕ್ಕಿ", "quantity": 2, "unit": "kg"}],
+        "changes": [],
+        "needs_clarification": False,
+        "clarification_question": None,
+    }
+
+    def process(audio_path, *, existing_order=None):
+        assert Path(audio_path).is_file()
+        assert Path(audio_path).read_bytes() == b"sample voice data"
+        assert existing_order == {"action": "new_order", "items": [{"product": "rice", "quantity": 2, "unit": "kg"}]}
+        return result
+
+    with patch("voice_processing.process_voice_order", side_effect=process):
+        response = request(client, "POST", "/v1/voice/orders/process", files={
+            "audio": ("voice.webm", b"sample voice data", "audio/webm"),
+        }, data={"existing_order": json.dumps(existing_order)})
+
+    assert response.status_code == 200
+    assert response.json()["data"] == result
+
+
+def test_buyer_voice_endpoint_validates_audio(setup_api):
+    client, _ = setup_api
+    missing = request(client, "POST", "/v1/voice/orders/process", data={})
+    empty = request(client, "POST", "/v1/voice/orders/process", files={"audio": ("empty.webm", b"", "audio/webm")})
+    oversized = request(client, "POST", "/v1/voice/orders/process", files={
+        "audio": ("large.webm", b"x" * (10 * 1024 * 1024 + 1), "audio/webm"),
+    })
+
+    assert missing.status_code == 422
+    assert empty.status_code == 422
+    assert oversized.status_code == 413
 
 
 def test_requires_valid_bearer(setup_api):

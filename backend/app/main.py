@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import tempfile
 import time
 import uuid
+import asyncio
 from contextlib import asynccontextmanager
 from typing import Any
 from uuid import UUID
@@ -221,6 +224,59 @@ def create_app(settings: Settings | None = None, supabase: SupabaseREST | None =
     @app.get("/health")
     async def health():
         return {"status": "ok"}
+
+    @app.post("/v1/voice/orders/process")
+    async def process_buyer_voice_order(request: Request):
+        """Turn a short buyer voice note into a multilingual order draft."""
+        form = await request.form()
+        audio = form.get("audio")
+        if not hasattr(audio, "read") or not hasattr(audio, "filename"):
+            raise HTTPException(status_code=422, detail="An audio file is required")
+
+        content = await audio.read(10 * 1024 * 1024 + 1)
+        if not content:
+            raise HTTPException(status_code=422, detail="The audio file is empty")
+        if len(content) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="The audio file must be 10 MB or smaller")
+
+        existing_order = None
+        raw_existing_order = form.get("existing_order")
+        if raw_existing_order:
+            try:
+                existing_order = json.loads(str(raw_existing_order))
+            except json.JSONDecodeError as exc:
+                raise HTTPException(status_code=422, detail="Existing order context must be valid JSON") from exc
+            if not isinstance(existing_order, dict):
+                raise HTTPException(status_code=422, detail="Existing order context must be an object")
+
+        suffix = os.path.splitext(audio.filename or "voice.webm")[1].lower()
+        if suffix not in {".webm", ".mp4", ".m4a", ".wav", ".mp3", ".ogg", ".opus", ".aac", ".flac", ".amr"}:
+            suffix = ".webm"
+        temporary_path = None
+        try:
+            with tempfile.NamedTemporaryFile(prefix="dukan-voice-", suffix=suffix, delete=False) as temporary:
+                temporary.write(content)
+                temporary_path = temporary.name
+            from voice_processing import process_voice_order
+
+            result = await asyncio.to_thread(process_voice_order, temporary_path, existing_order=existing_order)
+        except RuntimeError as exc:
+            if "SARVAM_API_KEY" in str(exc):
+                raise HTTPException(status_code=503, detail="Voice ordering is not configured on the server") from exc
+            raise HTTPException(status_code=502, detail="The voice service could not process this recording") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="The audio recording could not be processed") from exc
+        except Exception as exc:
+            logger.warning("voice_processing_failed", extra={"event": "voice_processing_failed", "error_code": type(exc).__name__})
+            raise HTTPException(status_code=502, detail="The voice service is temporarily unavailable") from exc
+        finally:
+            if temporary_path:
+                try:
+                    os.unlink(temporary_path)
+                except FileNotFoundError:
+                    pass
+
+        return {"data": result}
 
     # Customer APIs
     @app.post("/v1/shops/{shop_id}/customers", status_code=201)

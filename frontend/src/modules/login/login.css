@@ -1,0 +1,38 @@
+.login-page { min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; background: radial-gradient(circle at 12% 12%, #e7f5ec 0, transparent 33%), radial-gradient(circle at 88% 90%, #e9e5fb 0, transparent 34%), #f7f8fa; color: #19251f; font-family: Inter, "Segoe UI", system-ui, sans-serif; }
+.login-card { width: min(100%, 490px); padding: clamp(24px, 5vw, 42px); border: 1px solid #e6eae7; border-radius: 22px; background: #fff; box-shadow: 0 24px 70px #15271a12; }
+.login-brand { display: flex; align-items: center; gap: 12px; }
+.login-brand-icon { display: grid; width: 46px; height: 46px; place-items: center; border-radius: 14px; background: #087a4d; color: white; }
+.login-brand strong, .login-brand span { display: block; }
+.login-brand strong { font-size: 1.12rem; font-weight: 800; letter-spacing: -.03em; }
+.login-brand div > span { margin-top: 2px; color: #718078; font-size: .76rem; }
+.login-intro { margin: 34px 0 22px; }
+.login-eyebrow { color: #07814f; font-size: .7rem; font-weight: 800; letter-spacing: .16em; }
+.login-intro h1 { margin: 7px 0 5px; font-size: clamp(1.45rem, 4vw, 1.85rem); letter-spacing: -.04em; line-height: 1.18; }
+.login-intro > p:last-child { color: #77827b; font-size: .92rem; }
+.role-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 5px; border-radius: 12px; background: #f1f4f2; }
+.role-tabs button { min-height: 43px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid transparent; border-radius: 9px; color: #66736b; font-size: .9rem; font-weight: 650; }
+.role-tabs button.selected { border-color: #e2e8e4; background: #fff; color: #087a4d; box-shadow: 0 2px 5px #1224180c; }
+.login-form { display: grid; gap: 15px; margin-top: 21px; }
+.login-form label { display: grid; gap: 7px; color: #35443b; font-size: .82rem; font-weight: 680; }
+.login-form input { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #dce3de; border-radius: 9px; background: white; color: #1d2821; font: inherit; font-size: .9rem; outline: none; }
+.login-form input:focus { border-color: #13845a; box-shadow: 0 0 0 3px #1184531a; }
+.optional-label { display: inline; color: #98a39c; font-size: .73rem; font-weight: 500; }
+.login-panel-note { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border: 1px solid #dcefe4; border-radius: 10px; background: #f1faf5; color: #286044; font-size: .8rem; line-height: 1.5; }
+.login-panel-note svg { flex: none; margin-top: 1px; }
+.login-help { margin-top: -7px; color: #7a877f; font-size: .75rem; line-height: 1.5; }
+.login-label { color: #46564c; font-size: .82rem; font-weight: 700; }
+.mode-options { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.mode-options button { min-height: 86px; padding: 12px; border: 1px solid #dce3de; border-radius: 10px; background: white; text-align: left; }
+.mode-options button.selected { border-color: #108454; background: #f3faf6; box-shadow: 0 0 0 2px #10845413; }
+.mode-options strong, .mode-options span { display: block; }
+.mode-options strong { color: #24352b; font-size: .84rem; }
+.mode-options span { margin-top: 5px; color: #76837a; font-size: .72rem; line-height: 1.4; }
+.login-submit { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 47px; margin-top: 2px; border-radius: 10px; background: #087a4d; color: white; font-size: .9rem; font-weight: 720; }
+.login-submit:hover { background: #06623e; }
+.login-error { padding: 10px 12px; border-radius: 8px; background: #fff2f0; color: #a63326; font-size: .8rem; }
+.login-notice { padding: 10px 12px; border: 1px solid #cce8d7; border-radius: 8px; background: #f1faf5; color: #286044; font-size: .8rem; line-height: 1.5; }
+.login-switch { color: #7a877f; font-size: .78rem; text-align: center; }
+.login-switch button { color: #087a4d; font: inherit; font-weight: 750; }
+.login-switch button:hover { text-decoration: underline; }
+.login-footer { margin: 23px 0 0; color: #9aa49d; font-size: .75rem; text-align: center; }
+@media (max-width: 420px) { .login-card { padding: 23px 18px; border-radius: 17px; } .mode-options { grid-template-columns: 1fr; } .mode-options button { min-height: 70px; } }
