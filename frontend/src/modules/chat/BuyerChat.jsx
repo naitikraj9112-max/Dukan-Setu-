@@ -28,9 +28,22 @@ const DEMO_SHOP = {
 const actionLabels = {
   new_order: 'New order request',
   modify_order: 'Order change request',
-  confirm_order: 'Order confirmation',
-  reject_order: 'Order rejection',
+  confirm_order: 'Voice order confirmation',
+  reject_order: 'Order cancellation',
   unknown: 'Needs clarification',
+}
+
+const langNames = {
+  'hi-IN': 'Hindi',
+  'kn-IN': 'Kannada',
+  'en-IN': 'English',
+  'ta-IN': 'Tamil',
+  'te-IN': 'Telugu',
+  'mr-IN': 'Marathi',
+  'gu-IN': 'Gujarati',
+  'bn-IN': 'Bengali',
+  'pa-IN': 'Punjabi',
+  'ml-IN': 'Malayalam',
 }
 
 function clock() {
@@ -245,6 +258,70 @@ export function BuyerChat({ buyer, onSignOut }) {
       const result = payload?.data
       if (!result || typeof result.action !== 'string') throw new Error('The voice service returned an invalid response.')
 
+      const langTitle = langNames[result.language_code] || result.language_code || 'regional language'
+
+      // Case 1: Regional Voice Confirmation (e.g. "haan theek hai confirm kardo" / "haudu confirm maadi")
+      if (result.action === 'confirm_order') {
+        const existing = orderDraftRef.current
+        if (existing && existing.items?.length > 0) {
+          const itemsWithPrice = (existing.items || []).map(item => {
+            const matched = matchProductPrice(item.product)
+            const unitPrice = matched ? matched.price : 50
+            const subtotal = unitPrice * (item.quantity || 1)
+            return { ...item, matchedName: matched?.name || item.product, unitPrice, subtotal }
+          })
+          const totalEstimate = itemsWithPrice.reduce((sum, item) => sum + (item.subtotal || 0), 0)
+
+          setMessages(current => [
+            ...current,
+            {
+              id: Date.now(),
+              from: 'ai',
+              text: `🎙️ Voice confirmation recognized in ${langTitle}: "${result.transcript}". Confirming your order now!`,
+              time: clock(),
+            }
+          ])
+
+          handleConfirmOrder(result, itemsWithPrice, totalEstimate)
+          return
+        }
+      }
+
+      // Case 2: Regional Voice Rejection (e.g. "nahi cancel kardo" / "beda cancel maadi")
+      if (result.action === 'reject_order') {
+        orderDraftRef.current = null
+        setMessages(current => [
+          ...current,
+          {
+            id: Date.now(),
+            from: 'ai',
+            text: `❌ Order cancelled by voice in ${langTitle} ("${result.transcript}"). You can start a new order anytime.`,
+            time: clock(),
+          }
+        ])
+        return
+      }
+
+      // Case 3: Regional Voice Modification (e.g. "chawal 3 kilo kardo")
+      if (result.action === 'modify_order' && orderDraftRef.current) {
+        let updatedItems = [...(orderDraftRef.current.items || [])]
+        for (const change of (result.changes || [])) {
+          if (change.operation === 'remove') {
+            updatedItems = updatedItems.filter(i => !i.product.toLowerCase().includes(change.product.toLowerCase()))
+          } else if (change.operation === 'add') {
+            updatedItems.push({ product: change.product, quantity: change.quantity, unit: change.unit })
+          } else if (change.operation === 'update') {
+            const idx = updatedItems.findIndex(i => i.product.toLowerCase().includes(change.product.toLowerCase()))
+            if (idx >= 0) {
+              updatedItems[idx] = { ...updatedItems[idx], quantity: change.quantity, unit: change.unit || updatedItems[idx].unit }
+            } else {
+              updatedItems.push({ product: change.product, quantity: change.quantity, unit: change.unit })
+            }
+          }
+        }
+        result.items = updatedItems
+      }
+
       orderDraftRef.current = result
       setMessages(current => [...current, { id: Date.now(), from: 'ai', type: 'result', result, time: clock() }])
     } catch (cause) {
@@ -327,21 +404,65 @@ export function BuyerChat({ buyer, onSignOut }) {
     ])
 
     setTimeout(() => {
+      const lower = textSample.toLowerCase()
+      const isConfirmation = lower.includes('confirm') || lower.includes('theek hai') || lower.includes('haudu') || lower.includes('bhej do')
+      const isRejection = lower.includes('cancel') || lower.includes('nahi') || lower.includes('beda')
+
+      if (isConfirmation && orderDraftRef.current?.items?.length > 0) {
+        const existing = orderDraftRef.current
+        const itemsWithPrice = (existing.items || []).map(item => {
+          const matched = matchProductPrice(item.product)
+          const unitPrice = matched ? matched.price : 50
+          const subtotal = unitPrice * (item.quantity || 1)
+          return { ...item, matchedName: matched?.name || item.product, unitPrice, subtotal }
+        })
+        const totalEstimate = itemsWithPrice.reduce((sum, item) => sum + (item.subtotal || 0), 0)
+        const langTitle = langNames[detectedLang] || 'regional language'
+
+        setMessages(current => [
+          ...current,
+          {
+            id: Date.now(),
+            from: 'ai',
+            text: `🎙️ Voice confirmation recognized in ${langTitle}: "${textSample}". Your order is placed!`,
+            time: clock(),
+          }
+        ])
+        handleConfirmOrder({ action: 'confirm_order', transcript: textSample, language_code: detectedLang }, itemsWithPrice, totalEstimate)
+        setProcessing(false)
+        return
+      }
+
+      if (isRejection) {
+        orderDraftRef.current = null
+        setMessages(current => [
+          ...current,
+          {
+            id: Date.now(),
+            from: 'ai',
+            text: `❌ Order cancelled by voice ("${textSample}"). You can start a new order anytime.`,
+            time: clock(),
+          }
+        ])
+        setProcessing(false)
+        return
+      }
+
       // Parse sample text to extract items
       let items = []
-      if (textSample.includes('chawal') || textSample.includes('rice')) {
+      if (lower.includes('chawal') || lower.includes('rice')) {
         items.push({ product: 'Basmati Rice', quantity: 2, unit: 'kg' })
       }
-      if (textSample.includes('doodh') || textSample.includes('milk')) {
+      if (lower.includes('doodh') || lower.includes('milk')) {
         items.push({ product: 'Amul Taaza Milk', quantity: 1, unit: 'L' })
       }
-      if (textSample.includes('sugar') || textSample.includes('cheeni')) {
+      if (lower.includes('sugar') || lower.includes('cheeni')) {
         items.push({ product: 'White Sugar', quantity: 1, unit: 'kg' })
       }
-      if (textSample.includes('tea') || textSample.includes('chai')) {
+      if (lower.includes('tea') || lower.includes('chai')) {
         items.push({ product: 'Assam Tea', quantity: 2, unit: 'pack' })
       }
-      if (textSample.includes('atta') || textSample.includes('wheat')) {
+      if (lower.includes('atta') || lower.includes('wheat')) {
         items.push({ product: 'Whole Wheat Atta', quantity: 5, unit: 'kg' })
       }
       if (!items.length) {
@@ -373,7 +494,7 @@ export function BuyerChat({ buyer, onSignOut }) {
         }
       ])
       setProcessing(false)
-    }, 900)
+    }, 700)
   }
 
   function handleConfirmOrder(result, itemsWithPrice, totalEstimate) {
@@ -582,19 +703,27 @@ export function BuyerChat({ buyer, onSignOut }) {
                   className="buyer-prompt-chip highlight"
                   onClick={() => triggerSampleVoiceOrder('2 kilo chawal aur ek litre doodh', 'hi-IN')}
                 >
-                  <Zap size={11} style={{ display: 'inline', marginRight: '3px' }} /> "2 kilo chawal aur 1 litre doodh" (Hindi)
+                  <Zap size={11} style={{ display: 'inline', marginRight: '3px' }} /> "2 kilo chawal aur 1 litre doodh" (Hindi Order)
                 </button>
                 <button
                   className="buyer-prompt-chip"
                   onClick={() => triggerSampleVoiceOrder('1 kg sugar and 2 packets of Assam tea', 'en-IN')}
                 >
-                  "1 kg sugar and 2 packs tea" (English)
+                  "1 kg sugar and 2 packs tea" (English Order)
                 </button>
                 <button
-                  className="buyer-prompt-chip"
-                  onClick={() => triggerSampleVoiceOrder('5 kg atta and 1 litre sunflower oil', 'hi-IN')}
+                  className="buyer-prompt-chip highlight"
+                  style={{ borderColor: '#2e9f65', background: '#effbf3', color: '#0c8756' }}
+                  onClick={() => triggerSampleVoiceOrder('Haan theek hai, order confirm kar do', 'hi-IN')}
                 >
-                  "5 kg atta aur 1 litre oil"
+                  🎙️ "Haan theek hai, confirm kardo" (Hindi Voice Confirmation)
+                </button>
+                <button
+                  className="buyer-prompt-chip highlight"
+                  style={{ borderColor: '#2e9f65', background: '#effbf3', color: '#0c8756' }}
+                  onClick={() => triggerSampleVoiceOrder('Haudu, order confirm maadi', 'kn-IN')}
+                >
+                  🎙️ "Haudu, order confirm maadi" (Kannada Voice Confirmation)
                 </button>
               </div>
             </div>
