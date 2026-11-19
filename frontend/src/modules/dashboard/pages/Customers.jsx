@@ -8,13 +8,14 @@ import { ORDER_POLL_INTERVAL, uniqueNewestFirst } from '../utils/orders'
 export function Customers({ api, ordersResource, onOpen, basePath }) {
   const { customerId } = useParams()
   const [query, setQuery] = useState('')
-  const customers = [...new Map((ordersResource.data ?? []).map(order => [order.customer.id, order.customer])).values()]
+  const customers = [...new Map((ordersResource.data ?? []).filter(order => order.customer.id).map(order => [order.customer.id, order.customer])).values()]
     .sort((a, b) => (a.name ?? a.id).localeCompare(b.name ?? b.id))
   const filtered = customers.filter(customer => [customer.name, customer.id, customer.phone].some(value => String(value ?? '').toLowerCase().includes(query.trim().toLowerCase())))
   const load = useCallback(() => api.getCustomerOrders(customerId), [api, customerId])
-  const history = useResource(load, { enabled: Boolean(customerId), interval: ORDER_POLL_INTERVAL })
+  const hasHistoryEndpoint = typeof api.getCustomerOrders === 'function'
+  const history = useResource(load, { enabled: Boolean(customerId) && hasHistoryEndpoint, interval: ORDER_POLL_INTERVAL })
   const liveOrders = ordersResource.data?.filter(order => order.customer.id === customerId)
-  const records = history.data || liveOrders?.length
+  const records = history.data || liveOrders
     ? uniqueNewestFirst([...(history.data ?? []).filter(order => order.customer.id === customerId), ...(liveOrders ?? [])])
     : undefined
   const customer = customers.find(record => record.id === customerId) ?? records?.[0]?.customer
@@ -29,7 +30,7 @@ export function Customers({ api, ordersResource, onOpen, basePath }) {
         </li>)}</ul> : <Empty title="No customers found" />)}
       </section>
       <section className="panel records-panel"><div className="panel-header"><div><h2>{customer?.name ?? 'Purchase history'}</h2><p>{customer ? [customer.id, customer.phone, customer.language].filter(Boolean).join(' · ') : 'View orders by customer'}</p></div></div>
-        {customerId ? <><ResourceState resource={history} loading="Loading purchase history…" />{records && <Records key={customerId} orders={records} onOpen={onOpen} searchLabel="Search customer orders" />}</> : <Empty title="Select a customer">Their order history and previous purchases will appear here.</Empty>}
+        {customerId ? <><ResourceState resource={hasHistoryEndpoint ? history : ordersResource} loading="Loading purchase history…" />{records && <Records key={customerId} orders={records} onOpen={onOpen} searchLabel="Search customer orders" />}</> : <Empty title="Select a customer">Their order history and previous purchases will appear here.</Empty>}
       </section>
     </div>
   </>

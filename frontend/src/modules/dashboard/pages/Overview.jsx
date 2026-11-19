@@ -17,7 +17,7 @@ export function Overview({ ordersResource, inventoryResource, analyticsResource,
   const active = orders.filter(order => isOpen(order) && isEligibleForFulfillment(order)).length
   const cutoff = new Date(now)
   cutoff.setDate(cutoff.getDate() - 29)
-  const activeCustomers = new Set(orders.filter(order => order.status !== 'cancelled' && dayKey(order.createdAt) >= dayKey(cutoff)).map(order => order.customer.id))
+  const activeCustomers = new Set(orders.filter(order => order.customer.id && order.status !== 'cancelled' && dayKey(order.createdAt) >= dayKey(cutoff)).map(order => order.customer.id))
   const stats = [
     { label: 'Total orders', value: orders.length, icon: ShoppingBag, tone: 'purple', detail: today.length + ' placed today' },
     { label: 'Pending orders', value: pending.length, icon: Clock3, tone: 'orange', detail: 'Confirmed by customer, awaiting action' },

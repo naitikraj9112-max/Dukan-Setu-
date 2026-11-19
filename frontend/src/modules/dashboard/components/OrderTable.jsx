@@ -9,7 +9,7 @@ export function OrderTable({ orders, onOpen, empty = 'No orders found' }) {
       <thead><tr><th scope="col">Order ID</th><th scope="col">Customer</th><th scope="col">Date & time</th><th scope="col">Total</th><th scope="col">Status</th><th scope="col"><span className="sr-only">Details</span></th></tr></thead>
       <tbody>{orders.map(order => <tr key={order.id}>
         <td><button className="order-link" onClick={() => onOpen(order.id)}>#{order.id}</button></td>
-        <td><div className="person"><Avatar name={order.customer.name} /><span>{order.customer.name ?? 'Name unavailable'}</span></div></td>
+        <td><div className="person"><Avatar name={order.customer.name} /><span>{order.customer.name ?? (order.customer.id ? 'Name unavailable' : 'No customer linked')}</span></div></td>
         <td className="muted nowrap">{dateTime(order.createdAt)}</td>
         <td className="nowrap">{money(order.total)}</td>
         <td><Badge status={order.status} />{isOpen(order) && !isEligibleForFulfillment(order) && <p className="muted small">{order.confirmation?.status === 'confirmed' ? 'Review required' : VOICE_LABELS[order.confirmation?.status] ?? 'Awaiting confirmation'}</p>}</td>

@@ -1,6 +1,6 @@
 export const STATUSES = ['pending', 'confirmed', 'packing', 'ready', 'completed', 'cancelled']
 export const STATUS_LABELS = { pending: 'Pending', confirmed: 'Confirmed', packing: 'Packing', ready: 'Ready for pickup', completed: 'Completed', cancelled: 'Cancelled' }
-export const VOICE_LABELS = { awaiting_confirmation: 'Awaiting confirmation', confirmed: 'Confirmed by voice', rejected: 'Rejected by customer', needs_clarification: 'Needs clarification' }
+export const VOICE_LABELS = { awaiting_confirmation: 'Awaiting confirmation', confirmed: 'Confirmed by voice', rejected: 'Rejected by customer', needs_clarification: 'Needs clarification', unavailable: 'Confirmation unavailable' }
 export const ISSUE_LABELS = {
   unrecognized_product: 'Unrecognized product', missing_quantity: 'Missing or invalid quantity',
   invalid_unit: 'Invalid unit', uncertain_extraction: 'Uncertain extraction',

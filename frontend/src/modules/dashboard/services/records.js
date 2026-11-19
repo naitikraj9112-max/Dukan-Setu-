@@ -30,12 +30,12 @@ function normalizeItem(item) {
   }
 }
 
-export function normalizeOrder(raw) {
+export function normalizeOrder(raw, { allowAnonymous = false } = {}) {
   const id = identifier(raw?.id)
   const customer = raw?.customer
   const customerId = identifier(customer?.id ?? raw?.customer_id)
   const createdAt = timestamp(raw?.createdAt ?? raw?.created_at)
-  if (!id || !customerId || !createdAt || !STATUSES.includes(raw.status)) {
+  if (!id || (!customerId && !allowAnonymous) || !createdAt || !STATUSES.includes(raw.status)) {
     throw new Error('The store API returned an order with an invalid ID, customer ID, creation date, or status.')
   }
   const rawItems = Array.isArray(raw.items) ? raw.items : []
@@ -80,7 +80,7 @@ export function normalizeOrder(raw) {
 }
 
 export function normalizeOrders(value) {
-  return uniqueNewestFirst(list(value, 'order').map(normalizeOrder))
+  return uniqueNewestFirst(list(value, 'order').map(row => normalizeOrder(row)))
 }
 
 export function normalizeInventory(value) {
