@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { Activity, Bell, ChartNoAxesCombined, ClipboardList, LayoutDashboard, Menu, Package, ShoppingBag, Store, TrendingUp, UsersRound, X } from 'lucide-react'
+import { Activity, Bell, ChartNoAxesCombined, ClipboardList, LayoutDashboard, Menu, MessageCircle, Package, ShoppingBag, Store, TrendingUp, UsersRound, X } from 'lucide-react'
 import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { Analytics } from './components/Analytics'
 import { Drawer } from './components/Common'
@@ -11,6 +11,7 @@ import { Customers } from './pages/Customers'
 import { Orders } from './pages/Orders'
 import { Overview } from './pages/Overview'
 import { Demand, Stock } from './pages/Stock'
+import Chat from '../chat/Chat'
 import { dashboardApi, isDemo } from './services/api'
 import { summarize } from './utils/analytics'
 import { orderNotifications } from './utils/incomingOrders'
@@ -19,6 +20,7 @@ import './dashboard.css'
 
 const navigation = [
   { path: '', label: 'Overview', icon: LayoutDashboard },
+  { path: '/chat', label: 'WhatsApp chat', icon: MessageCircle },
   { path: '/orders', label: 'Orders', icon: ClipboardList },
   { path: '/customers', label: 'Customers', icon: UsersRound },
   { path: '/inventory', label: 'Inventory', icon: Package },
@@ -95,7 +97,7 @@ export function Dashboard({ api = dashboardApi, demo = api === dashboardApi && i
           <button className="icon-button notification-trigger" aria-label={unread ? 'Notifications, ' + unread + ' unread' : 'Notifications'} onClick={() => setPanel({ kind: 'notifications' })}><Bell size={21} strokeWidth={1.8} />{unread > 0 && <span className="notification-count">{unread > 99 ? '99+' : unread}</span>}</button>
         </div>
       </header>
-      <main id="dashboard-main" className="content" tabIndex={-1}>
+      <main id="dashboard-main" className={`content ${section === 'WhatsApp chat' ? 'content-chat' : ''}`} tabIndex={-1}>
         {latest && <div className="arrival-banner">
           <p role="status"><strong>New Order Received</strong><span>{latest.unverified ? 'The store saved a new order. Voice confirmation is unavailable.' : latest.count === 1 ? 'Order #' + latest.orderId + ' is ready to review.' : latest.count + ' orders are ready to review.'}</span></p>
           <button className="button compact" onClick={() => latest.count === 1 ? openOrder(latest.orderId) : setPanel({ kind: 'notifications' })}>{latest.count === 1 ? 'View order' : 'View notifications'}</button>
@@ -103,6 +105,7 @@ export function Dashboard({ api = dashboardApi, demo = api === dashboardApi && i
         </div>}
         <Routes>
           <Route index element={<Overview ordersResource={orders} inventoryResource={inventory} analyticsResource={analytics} days={days} onDays={setDays} onOpen={openOrder} basePath={basePath} />} />
+          <Route path="chat" element={<Chat embedded />} />
           <Route path="orders" element={<Orders resource={orders} onOpen={openOrder} />} />
           <Route path="customers/:customerId?" element={<Customers api={api} ordersResource={orders} onOpen={openOrder} basePath={basePath} />} />
           <Route path="inventory" element={<Stock resource={inventory} />} />
