@@ -7,3 +7,4 @@ backend/.validation-deps/
 supabase/.temp/
 node_modules/
 dist/
+.firebase/
