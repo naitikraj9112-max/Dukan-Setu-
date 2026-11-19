@@ -5,3 +5,5 @@ __pycache__/
 backend/.test-deps/
 backend/.validation-deps/
 supabase/.temp/
+node_modules/
+dist/
